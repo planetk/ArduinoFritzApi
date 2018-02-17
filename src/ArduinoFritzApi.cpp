@@ -116,45 +116,50 @@ double FritzApi::getTemperature(String ain) {
   return atof(result.c_str()) / 10;
 }
 
-//getswitchlist Liefert die kommaseparierte AIN/MAC Liste aller bekannten Steckdosen
-//getswitchpresent Ermittelt Verbindungsstatus des Aktors
-//getswitchpower Ermittelt aktuell über die Steckdose entnommene Leistung (Leistung in mW, "inval" wenn unbekannt)
-//getswitchenergy Liefert die über die Steckdose entnommene Ernergiemenge seit Erstinbetriebnahme oder Zurücksetzen der Energiestatistik (Energie in Wh, "inval" wenn unbekannt)
-//getswitchname Liefert Bezeichner des Aktors Name
-//getdevicelistinfos Liefert die grundlegenden Informationen aller SmartHome-Geräte (xml)
+String FritzApi::getSwitchName(String ain) {
+  return executeRequest("getswitchname&sid=" + _sid + "&ain=" + String(ain));
+}
 
+double FritzApi::getThermostatNominalTemperature(String ain) {
+  String result = executeRequest("gethkrtsoll&sid=" + _sid + "&ain=" + String(ain));
+  if (result == "inval") {
+  	throw FRITZ_ERR_VALUE_NOT_AVAILABLE;
+  }
+  return convertTemperature(result);
+}
 
-//gethkrtsoll Für HKR aktuell eingestellte Solltemperatur Temperatur-Wert in 0,5 °C,
-//  Wertebereich: 16 – 56, 8 bis 28°C, 16 <= 8°C, 17 = 8,5°C...... 56 >= 28°C, 254 = ON , 253 = OFF
-//gethkrkomfort Für HKR-Zeitschaltung eingestellte Komforttemperatur Temperatur-Wert in 0,5 °C,
-//  Wertebereich: 16 – 56, 8 bis 28°C, 16 <= 8°C, 17 = 8,5°C...... 56 >= 28°C, 254 = ON , 253 = OFF
-//gethkrabsenk Für HKR-Zeitschaltung eingestellte Spartemperatur Temperatur-Wert in 0,5 °C,
-//  Wertebereich: 16 – 56, 8 bis 28°C, 16 <= 8°C, 17 = 8,5°C...... 56 >= 28°C, 254 = ON , 253 = OFF
-//sethkrtsoll HKR Solltemperatur einstellen. Temperatur-Wert in 0,5 °C,
-// Wertebereich: 16 – 56
-//  Wertebereich: 16 – 56, 8 bis 28°C, 16 <= 8°C, 17 = 8,5°C...... 56 >= 28°C, 254 = ON , 253 = OFF
+double FritzApi::getThermostatComfortTemperature(String ain) {
+  String result = executeRequest("gethkrkomfort&sid=" + _sid + "&ain=" + String(ain));
+  if (result == "inval") {
+  	throw FRITZ_ERR_VALUE_NOT_AVAILABLE;
+  }
+  return convertTemperature(result);
+}
 
-/*
- * Get list getThermostatList - polyfill
-Set target temperature setTempTarget, supports 'ON'/'OFF' to enable/disable thermostat
-Get target temperature getTempTarget
-Get comfort temperature getTempComfort
-Get night temperature getTempNight
-Get battery charge getBatteryCharge (uses UI scraping, may be unstable)
-Get window open getWindowOpen (uses UI scraping, may be unstable)
-WLAN functions
-Get the guest wlan settings getGuestWlan
-Set the guest wlan setGuestWlan
+double FritzApi::getThermostatReducedTemperature(String ain) {
+  String result = executeRequest("gethkrabsenk&sid=" + _sid + "&ain=" + String(ain));
+  if (result == "inval") {
+  	throw FRITZ_ERR_VALUE_NOT_AVAILABLE;
+  }
+  return convertTemperature(result);
+}
 
-Get the Fritz!OS version getOSVserion
-Get the session ID getSessionID
-Get device list as XML getDeviceListInfos >Fritz!OS 6.10
-Get device list getDeviceList >Fritz!OS 6.10
-Get device list with filter criteria applied getDeviceListFiltered >Fritz!OS 6.10
-Get device getDevice >Fritz!OS 6.10
-Get temperature getTemperature - polyfill
-Get presence getPresence - polyfill
-*/
+double FritzApi::setThermostatNominalTemperature(String ain, double temp) {
+  int param;
+  if (temp == FRITZ_OFF_TEMPERATURE) {
+    param=253;
+  } else if (temp == FRITZ_ON_TEMPERATURE) {
+    param=254;
+  } else if (temp < 8.0f) {
+    param=16;
+  } else if (temp > 28.0f) {
+    param=56;
+  } else {
+    param = 2*temp;
+  }
+  String result = executeRequest("sethkrtsoll&sid=" + _sid + "&ain=" + String(ain) + "&param=" + param);
+  return temp;
+}
 
 String FritzApi::executeRequest(String request) {
   String result;
@@ -174,4 +179,14 @@ String FritzApi::executeRequest(String request) {
   } else {
     throw httpStatus;
   }
+}
+
+double FritzApi::convertTemperature(String result) {
+  double temp = atof(result.c_str());
+  if (temp == 254) {
+    return FRITZ_ON_TEMPERATURE;
+  } else if (temp == 253 ){
+    return FRITZ_OFF_TEMPERATURE;
+  }
+  return temp/2;
 }

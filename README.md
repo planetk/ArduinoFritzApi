@@ -22,6 +22,16 @@ Following functions have been implemented:
   <dd>Get total energy since last reset in Wh</dd>
   <dt>getTemperature</dt>
   <dd>Get temperature in °C</dd>
+  <dt>getSwitchName</dt>
+  <dd>Get name of an actor</dd>
+  <dt>getThermostatNominalTemperature</dt>
+  <dd>Get nominal temperature of thermostat (8: &lt;= 8°C, 28: &gt;= 28°C, 100: max, 0: off)</dd>
+  <dt>getThermostatComfortTemperature</dt>
+  <dd>Get comfort temperature of thermostat (8: &lt;= 8°C, 28: &gt;= 28°C, 100: max, 0: off)</dd>
+  <dt>getThermostatReducedTemperature</dt>
+  <dd>Get reduced temperature of thermostat (8: &lt;= 8°C, 28: &gt;= 28°C, 100: max, 0: off)</dd>
+  <dt>setThermostatNominalTemperature</dt>
+  <dd>Set nominal temperature of thermostat (8: &lt;= 8°C, 28: &gt;= 28°C, 100: max, 0: off)</dd>
 
 # Error handling
 

@@ -10,6 +10,9 @@
 #define FRITZ_ERR_INVALID_SID         -1005
 #define FRITZ_ERR_VALUE_NOT_AVAILABLE -1006
 
+#define FRITZ_ON_TEMPERATURE          100.0f
+#define FRITZ_OFF_TEMPERATURE         0.0f
+
 class FritzApi {
   public:
     // Constructor: FB user, FB password, FB address (ip or 'fritz.box')
@@ -34,6 +37,19 @@ class FritzApi {
 	int getSwitchEnergy(String ain);
 	// Get temperature in °C
     double getTemperature(String ain);
+	// Get name of an actor
+	String getSwitchName(String ain);
+
+	// Get nominal temperature of thermostat (8 = <= 8°C, 28 = >= 28°C, 100 = max, 0 = off)
+	double getThermostatNominalTemperature(String ain);
+	// Get comfort temperature of thermostat (8 = <= 8°C, 28 = >= 28°C, 100 = max, 0 = off)
+	double getThermostatComfortTemperature(String ain);
+	// Get reduced temperature of thermostat (8 = <= 8°C, 28 = >= 28°C, 100 = max, 0 = off)
+	double getThermostatReducedTemperature(String ain);
+	// Set nominal temperature of thermostat (8 = <= 8°C, 28 = >= 28°C, 100 = max, 0 = off)
+	double setThermostatNominalTemperature(String ain, double temp);
+
+
 
   private:
     const char* _user;
@@ -45,6 +61,7 @@ class FritzApi {
     String getChallengeResponse();
     String getSID(String response);
     String executeRequest(String request);
+	double convertTemperature(String result);
     
 };
   
