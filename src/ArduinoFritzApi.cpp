@@ -1,10 +1,10 @@
 #include <MD5Builder.h>
 
-#include "FritzApi.h"
+#include "ArduinoFritzApi.h"
 
 // TODO: Add Compiler Directive for logging stuff ... #define FRITZ_API_DEBUG
 
-FritzApi::FritzApi(char* user, char* password, char* ip) {
+FritzApi::FritzApi(const char* user, const char* password, const char* ip) {
   _user = user;
   _pwd = password;
   _ip = ip;
@@ -16,25 +16,27 @@ FritzApi::~FritzApi(){
   _ip="";
 }
 
-
 void FritzApi::init() {
-   logPrintln("Initialising FritzApi for " + String(_ip));
    String response = getChallengeResponse();
    _sid = getSID(response);
-   // TODO: Check "" and "0000000000000000"
-   logPrintln("Got Session: " + _sid);
+   Serial.println("SID: " + _sid);
+   if (_sid == "") {
+	 throw FRITZ_ERR_EMPTY_SID;
+   } else if (_sid == "0000000000000000") {
+  	 throw FRITZ_ERR_INVALID_SID;   	
+   }
 }
 
 String FritzApi::getChallengeResponse() {
    // Get Challenge
    http.begin("http://" + String(_ip) + "/login_sid.lua");
    int retCode = http.GET();
-   if (retCode != 200) {
-     logPrintln("Error retrieving challenge " + retCode);
-     return "";
+   if (retCode < 0) {
+	 throw FRITZ_ERR_HTTP_COMMUNICATION;
+   } else if (retCode != 200) {
+	 throw FRITZ_ERR_NO_CHALLENGE;
    }
    String result = http.getString();
-   // TODO: check indexOf > 0
    String challenge = result.substring(result.indexOf("<Challenge>") + 11, result.indexOf("</Challenge>"));
    String challengeReponse = challenge + "-" + String(_pwd);
    String responseHash = "";
@@ -54,8 +56,10 @@ String FritzApi::getChallengeResponse() {
 String FritzApi::getSID(String response) {
   http.begin("http://" + String(_ip) + "/login_sid.lua?user=" + String(_user) + "&response=" + response);
   int retCode = http.GET();
-  if (retCode != 200) {
-    logPrintln("Error retrieving sessionId " + retCode);
+  if (retCode < 0) {
+    throw FRITZ_ERR_HTTP_COMMUNICATION;
+  } else if (retCode != 200) {
+    throw FRITZ_ERR_NO_SID;
   }
   String result = http.getString();
   // TODO: check indexOf > 0
@@ -63,63 +67,54 @@ String FritzApi::getSID(String response) {
   return sid;
 }
 
-//setswitchon Schaltet Steckdose ein
-FritzResult FritzApi::setSwitchOn(String ain) {
-  logPrintln("Turning switch on: " + ain);
-  FritzResult result = executeRequest("setswitchon&sid=" + _sid + "&ain=" + String(ain));
-  mapResultToIntStatus(&result);
-  return result;
+boolean FritzApi::setSwitchOn(String ain) {
+  String result = executeRequest("setswitchon&sid=" + _sid + "&ain=" + String(ain));
+  return (atoi(result.c_str()) == 1);
 }
 
-//setswitchoff Schaltet Steckdose aus
-FritzResult FritzApi::setSwitchOff(String ain) {
-  logPrintln("Turning switch off: " + ain);
-  FritzResult result = executeRequest ("setswitchoff&sid=" + _sid + "&ain=" + String(ain));
-  mapResultToIntStatus(&result);
-  return result;
+boolean FritzApi::setSwitchOff(String ain) {
+  String result = executeRequest("setswitchoff&sid=" + _sid + "&ain=" + String(ain));
+  return (atoi(result.c_str()) == 1);
 }
 
-//setswitchtoggle Toggeln der Steckdose ein/aus
-FritzResult FritzApi::setSwitchToggle(String ain) {
-  logPrintln("Toggling switch: " + ain);
-  FritzResult result = executeRequest ("setswitchtoggle&sid=" + _sid + "&ain=" + String(ain));
-  mapResultToIntStatus(&result);
-  return result;
+boolean FritzApi::setSwitchToggle(String ain) {
+  String result = executeRequest("setswitchtoggle&sid=" + _sid + "&ain=" + String(ain));
+  return (atoi(result.c_str()) == 1);
 }
 
-//getswitchstate Ermittelt Schaltzustand der Steckdose "0" oder "1" (Steckdose aus oder an), "inval" 
-FritzResult FritzApi::getSwitchState(String ain) {
-  logPrintln("Getting switch state: " + ain);
-  FritzResult result = executeRequest ("getswitchstate&sid=" + _sid + "&ain=" + String(ain));
-  mapResultToIntStatus(&result);
-  return result;
+boolean FritzApi::getSwitchState(String ain) {
+  String result = executeRequest("getswitchstate&sid=" + _sid + "&ain=" + String(ain));
+  return (atoi(result.c_str()) == 1);
 }
 
-//getswitchpresent Ermittelt Verbindungsstatus des Aktors
-FritzResult FritzApi::getSwitchPresent(String ain) {
-  logPrintln("Checking switch presence: " + ain);
-  FritzResult result = executeRequest ("getswitchpresent&sid=" + _sid + "&ain=" + String(ain));
-  mapResultToIntStatus(&result);
-  return result;
+boolean FritzApi::getSwitchPresent(String ain) {
+  String result = executeRequest("getswitchpresent&sid=" + _sid + "&ain=" + String(ain));
+  return (atoi(result.c_str()) == 1);
 }
 
-//getswitchpower Ermittelt aktuell über die Steckdose entnommene Leistung (Leistung in mW, "inval" wenn unbekannt)
-FritzResult FritzApi::getSwitchPower(String ain) {
-  logPrintln("Getting switch power: " + ain);
-  FritzResult result = executeRequest ("getswitchpower&sid=" + _sid + "&ain=" + String(ain));
-  mapResultToIntStatus(&result);
-  return result;
+double FritzApi::getSwitchPower(String ain) {
+  String result = executeRequest("getswitchpower&sid=" + _sid + "&ain=" + String(ain));
+  if (result == "inval") {
+  	throw FRITZ_ERR_VALUE_NOT_AVAILABLE;
+  }
+  return atof(result.c_str()) / 1000;
 }
 
-//getswitchenergy Liefert die über die Steckdose entnommene Ernergiemenge seit Erstinbetriebnahme oder Zurücksetzen der Energiestatistik (Energie in Wh, "inval" wenn unbekannt)
-FritzResult FritzApi::getSwitchEnergy(String ain) {
-  logPrintln("Getting switch energy: " + ain);
-  FritzResult result = executeRequest ("getswitchenergy&sid=" + _sid + "&ain=" + String(ain));
-  mapResultToIntStatus(&result);
-  return result;
+int FritzApi::getSwitchEnergy(String ain) {
+  String result = executeRequest("getswitchenergy&sid=" + _sid + "&ain=" + String(ain));
+  if (result == "inval") {
+  	throw FRITZ_ERR_VALUE_NOT_AVAILABLE;
+  }
+  return atoi(result.c_str());
 }
 
-
+double FritzApi::getTemperature(String ain) {
+  String result = executeRequest("gettemperature&sid=" + _sid + "&ain=" + String(ain));
+  if (result == "inval") {
+  	throw FRITZ_ERR_VALUE_NOT_AVAILABLE;
+  }
+  return atof(result.c_str()) / 10;
+}
 
 //getswitchlist Liefert die kommaseparierte AIN/MAC Liste aller bekannten Steckdosen
 //getswitchpresent Ermittelt Verbindungsstatus des Aktors
@@ -128,7 +123,7 @@ FritzResult FritzApi::getSwitchEnergy(String ain) {
 //getswitchname Liefert Bezeichner des Aktors Name
 //getdevicelistinfos Liefert die grundlegenden Informationen aller SmartHome-Geräte (xml)
 
-//gettemperature Letzte Temperaturinformation des Aktors (Temperatur-Wert in 0,1 °C, negative und positive Werte)
+
 //gethkrtsoll Für HKR aktuell eingestellte Solltemperatur Temperatur-Wert in 0,5 °C,
 //  Wertebereich: 16 – 56, 8 bis 28°C, 16 <= 8°C, 17 = 8,5°C...... 56 >= 28°C, 254 = ON , 253 = OFF
 //gethkrkomfort Für HKR-Zeitschaltung eingestellte Komforttemperatur Temperatur-Wert in 0,5 °C,
@@ -161,46 +156,22 @@ Get temperature getTemperature - polyfill
 Get presence getPresence - polyfill
 */
 
-
-FritzResult FritzApi::executeRequest(String request) {
-  int lastError = 0;
-  FritzResult result;
+String FritzApi::executeRequest(String request) {
+  String result;
+  int httpStatus;
   for (int retries = 0; retries < 3; retries++) {
     http.begin("http://" + String(_ip) + "/webservices/homeautoswitch.lua?switchcmd=" + request);
-    int retCode = http.GET();
-    if (retCode == 200) {
-      result.response = http.getString();
-      result.httpStatus = 200;
-      return result;
+    httpStatus = http.GET();
+    if (httpStatus == 200) {
+      return http.getString();
     } else {
-      logPrintln("Error executing request: " + retCode);
+      // Try to get new Session
       init();
-      lastError=retCode;
     }
   }
-  result.response = http.getString();
-  result.httpStatus = lastError;
-  logPrintln("Request " + request + " failed 3x. Last Error: " + lastError);
-  return result;
-}
-
-void FritzApi::setDebugLog( Print &print ) { 
-     logger = &print; //operate on the adress of print
-}
-
-void FritzApi::logPrintln( String entry ) { 
-  if (logger) {
-    logger->println(entry);
-  }
-}
-
-void FritzApi::mapResultToIntStatus(FritzResult* result) {
-  if (result->httpStatus != 200) {
-    result->statusCode = -1;
-  } else if (result->response == "inval") {
-    result->statusCode = -2;
+  if (httpStatus < 0) {
+    throw FRITZ_ERR_HTTP_COMMUNICATION;
   } else {
-    result->statusCode = atoi(result->response.c_str());
+    throw httpStatus;
   }
 }
-

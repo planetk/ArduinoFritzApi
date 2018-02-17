@@ -1,48 +1,51 @@
-#ifndef FRITZ_API_H
-#define FRITZ_API_H
-
-#define FRITZ_API_DEBUGGING
+#ifndef ARDUINO_FRITZ_API_H
+#define ARDUINO_FRITZ_API_H
 
 #include <HTTPClient.h>
 
-struct FritzResult { int httpStatus; int statusCode; String response; }; 
+#define FRITZ_ERR_HTTP_COMMUNICATION  -1001
+#define FRITZ_ERR_NO_CHALLENGE        -1002
+#define FRITZ_ERR_NO_SID              -1003
+#define FRITZ_ERR_EMPTY_SID           -1004
+#define FRITZ_ERR_INVALID_SID         -1005
+#define FRITZ_ERR_VALUE_NOT_AVAILABLE -1006
 
 class FritzApi {
   public:
     // Constructor: FB user, FB password, FB address (ip or 'fritz.box')
-    FritzApi(char* user, char* password, char* ip); 
+    FritzApi(const char* user, const char* password, const char* ip); 
     ~FritzApi();
 
     void init();
-#ifdef FRITZ_API_DEBUGGING
-    void setDebugLog( Print &print );
-#endif
-
-    FritzResult setSwitchOn(String ain);
-    FritzResult setSwitchOff(String ain);
-    FritzResult setSwitchToggle(String ain);
-    FritzResult getSwitchState(String ain);
-    FritzResult getSwitchPresent(String ain);
-    FritzResult getSwitchPower(String ain);
-    FritzResult getSwitchEnergy(String ain);
+	
+	// Switch actor on, return new switch state (true=on, false=off)
+    boolean setSwitchOn(String ain);
+	// Switch actor off, return new switch state (true=on, false=off)
+    boolean setSwitchOff(String ain);
+	// Toggle switch state, return new switch state (true=on, false=off)
+    boolean setSwitchToggle(String ain);
+	// Retrieve current switch state (true=on, false=off)
+    boolean getSwitchState(String ain);
+	// Check for presence of a switch with the given ain (true=present, false=offline)
+    boolean getSwitchPresent(String ain);
+	// Get current power consumption in Watt
+	double getSwitchPower(String ain);
+	// Get total energy since last reset in Wh
+	int getSwitchEnergy(String ain);
+	// Get temperature in °C
+    double getTemperature(String ain);
 
   private:
-    char* _user;
-    char* _pwd;
-    char* _ip;
+    const char* _user;
+    const char* _pwd;
+    const char* _ip;
     String _sid;
     HTTPClient http;
 
-#ifdef FRITZ_API_DEBUGGING
-    Print* logger;
-    void logPrintln(String entry);
-#endif
-
     String getChallengeResponse();
     String getSID(String response);
-    FritzResult executeRequest(String request);
-    void mapResultToIntStatus(FritzResult* result);
+    String executeRequest(String request);
     
 };
   
-#endif // FRITZ_API_H
+#endif // ARDUINO_FRITZ_API_H

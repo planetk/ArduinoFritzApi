@@ -1,2 +1,2 @@
-# fritzapi-arduino
+# ArduinoFritzApi
 An arduino Library for Automation of Fritz!Box, Fritz!DECT and FRITZ!Powerline devices
